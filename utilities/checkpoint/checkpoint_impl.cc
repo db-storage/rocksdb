@@ -64,7 +64,7 @@ Status CheckpointImpl::CreateCheckpoint(const std::string& checkpoint_dir,
   s = db_->GetEnv()->CreateDir(full_private_path);
   uint64_t sequence_number = 0;
   if (s.ok()) {
-    db_->DisableFileDeletions();
+    db_->DisableFileDeletions();//DHQ: 不允许删除文件
     s = CreateCustomCheckpoint(
         db_options,
         [&](const std::string& src_dirname, const std::string& fname,
@@ -152,8 +152,8 @@ Status CheckpointImpl::CreateCustomCheckpoint(
   if (s.ok()) {
     if (!db_options.allow_2pc) {
       if (log_size_for_flush == port::kMaxUint64) {
-        flush_memtable = false;
-      } else if (log_size_for_flush > 0) {
+        flush_memtable = false; //DHQ: 可能不会下刷
+      } else if (log_size_for_flush > 0) {//DHQ: 看来log里面有seq number
         // If out standing log files are small, we skip the flush.
         s = db_->GetSortedWalFiles(live_wal_files);
 
