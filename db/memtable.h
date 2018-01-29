@@ -315,7 +315,7 @@ class MemTable {
   // be flushed to storage
   // REQUIRES: external synchronization to prevent simultaneous
   // operations on the same MemTable.
-  void SetNextLogNumber(uint64_t num) { mem_next_logfile_number_ = num; }
+  void SetNextLogNumber(uint64_t num) { mem_next_logfile_number_ = num; }//DHQ: SwitchMemtable 里面调用。其他没看到
 
   // if this memtable contains data from a committed
   // two phase transaction we must take note of the

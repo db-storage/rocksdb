@@ -145,8 +145,8 @@ void FlushJob::PickMemTable() {
   edit_->SetPrevLogNumber(0);
   // SetLogNumber(log_num) indicates logs with number smaller than log_num
   // will no longer be picked up for recovery.
-  edit_->SetLogNumber(mems_.back()->GetNextLogNumber());
-  edit_->SetColumnFamily(cfd_->GetID());
+  edit_->SetLogNumber(mems_.back()->GetNextLogNumber()); //DHQ: 为什么可以这么SetLogNumber? 上面说了sorted in ascending .. time.
+  edit_->SetColumnFamily(cfd_->GetID());//DHQ: 但是怎么考虑那些mutable的呢？ 首先，是按照cf为单位，每个cf仅一个mutable memtable，转成immut时，设置了log number
 
   // path 0 for level 0 file.
   meta_.fd = FileDescriptor(versions_->NewFileNumber(), 0, 0);

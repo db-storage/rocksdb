@@ -1331,10 +1331,10 @@ Status DBImpl::SwitchMemtable(ColumnFamilyData* cfd, WriteContext* context) {
     }
   }
 
-  cfd->mem()->SetNextLogNumber(logfile_number_);
-  cfd->imm()->Add(cfd->mem(), &context->memtables_to_free_);
+  cfd->mem()->SetNextLogNumber(logfile_number_);//DHQ: 即将转为 imm，在此设置 logfile_number
+  cfd->imm()->Add(cfd->mem(), &context->memtables_to_free_);//DHQ: 放到imm()上
   new_mem->Ref();
-  cfd->SetMemtable(new_mem);
+  cfd->SetMemtable(new_mem);//DHQ: 切换为新的memtable
   InstallSuperVersionAndScheduleWork(cfd, &context->superversion_context,
                                      mutable_cf_options);
   if (two_write_queues_) {
