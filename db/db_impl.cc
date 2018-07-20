@@ -982,13 +982,13 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
   auto cfd = cfh->cfd();
 
   // Acquire SuperVersion
-  SuperVersion* sv = GetAndRefSuperVersion(cfd);
+  SuperVersion* sv = GetAndRefSuperVersion(cfd);//DHQ: SuperVersion是把memtable, current都做个ref，这里只要ref superversion即可了
 
   TEST_SYNC_POINT("DBImpl::GetImpl:1");
   TEST_SYNC_POINT("DBImpl::GetImpl:2");
 
   SequenceNumber snapshot;
-  if (read_options.snapshot != nullptr) {
+  if (read_options.snapshot != nullptr) {//DHQ: 有个snapshot
     // Note: In WritePrepared txns this is not necessary but not harmful either.
     // Because prep_seq > snapshot => commit_seq > snapshot so if a snapshot is
     // specified we should be fine with skipping seq numbers that are greater
@@ -1068,7 +1068,7 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
   return s;
 }
 
-std::vector<Status> DBImpl::MultiGet(
+std::vector<Status> DBImpl::MultiGet(//DHQ: Get from different Family
     const ReadOptions& read_options,
     const std::vector<ColumnFamilyHandle*>& column_family,
     const std::vector<Slice>& keys, std::vector<std::string>* values) {
@@ -1078,11 +1078,11 @@ std::vector<Status> DBImpl::MultiGet(
 
   SequenceNumber snapshot;
 
-  struct MultiGetColumnFamilyData {
+  struct MultiGetColumnFamilyData {//DHQ: 定义，包含了SuperVersion
     ColumnFamilyData* cfd;
     SuperVersion* super_version;
   };
-  std::unordered_map<uint32_t, MultiGetColumnFamilyData*> multiget_cf_data;
+  std::unordered_map<uint32_t, MultiGetColumnFamilyData*> multiget_cf_data;//DHQ: MultiGetColumnFamilyData，不是单个CF
   // fill up and allocate outside of mutex
   for (auto cf : column_family) {
     auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(cf);
@@ -1094,7 +1094,7 @@ std::vector<Status> DBImpl::MultiGet(
     }
   }
 
-  mutex_.Lock();
+  mutex_.Lock(); //DHQ: 获得Ref期间，持有了mutex
   if (read_options.snapshot != nullptr) {
     snapshot = reinterpret_cast<const SnapshotImpl*>(
         read_options.snapshot)->number_;
@@ -1105,7 +1105,7 @@ std::vector<Status> DBImpl::MultiGet(
   }
   for (auto mgd_iter : multiget_cf_data) {
     mgd_iter.second->super_version =
-        mgd_iter.second->cfd->GetSuperVersion()->Ref();
+        mgd_iter.second->cfd->GetSuperVersion()->Ref();//DHQ: 获得各个SuperVersion的Ref
   }
   mutex_.Unlock();
 
@@ -1137,7 +1137,7 @@ std::vector<Status> DBImpl::MultiGet(
     auto mgd_iter = multiget_cf_data.find(cfh->cfd()->GetID());
     assert(mgd_iter != multiget_cf_data.end());
     auto mgd = mgd_iter->second;
-    auto super_version = mgd->super_version;
+    auto super_version = mgd->super_version;//DHQ: 每个key，根据 mgd获得super_version。可能属于不同的 CF
     bool skip_memtable =
         (read_options.read_tier == kPersistedTier &&
          has_unpersisted_data_.load(std::memory_order_relaxed));
@@ -1157,7 +1157,7 @@ std::vector<Status> DBImpl::MultiGet(
       PinnableSlice pinnable_val;
       PERF_TIMER_GUARD(get_from_output_files_time);
       super_version->current->Get(read_options, lkey, &pinnable_val, &s,
-                                  &merge_context, &range_del_agg);
+                                  &merge_context, &range_del_agg);//DHQ: 从super_version->current去Get
       value->assign(pinnable_val.data(), pinnable_val.size());
       // TODO(?): RecordTick(stats_, MEMTABLE_MISS)?
     }
