@@ -440,7 +440,7 @@ std::unique_ptr<CompactionFilter> Compaction::CreateCompactionFilter() const {
 bool Compaction::IsOutputLevelEmpty() const {
   return inputs_.back().level != output_level_ || inputs_.back().empty();
 }
-
+//DHQ: Universal compaction，或者level0，但是输出的不是level，需要切分
 bool Compaction::ShouldFormSubcompactions() const {
   if (immutable_cf_options_.max_subcompactions <= 1 || cfd_ == nullptr) {
     return false;

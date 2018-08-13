@@ -1088,7 +1088,7 @@ std::vector<Status> DBImpl::MultiGet(//DHQ: Get from different Family
     auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(cf);
     auto cfd = cfh->cfd();
     if (multiget_cf_data.find(cfd->GetID()) == multiget_cf_data.end()) {
-      auto mgcfd = new MultiGetColumnFamilyData();
+      auto mgcfd = new MultiGetColumnFamilyData();//DHQ: 这个不是CFD，是个上面定义的 MultiGetColumnFamilyData
       mgcfd->cfd = cfd;
       multiget_cf_data.insert({cfd->GetID(), mgcfd});
     }
@@ -1105,7 +1105,7 @@ std::vector<Status> DBImpl::MultiGet(//DHQ: Get from different Family
   }
   for (auto mgd_iter : multiget_cf_data) {
     mgd_iter.second->super_version =
-        mgd_iter.second->cfd->GetSuperVersion()->Ref();//DHQ: 获得各个SuperVersion的Ref
+        mgd_iter.second->cfd->GetSuperVersion()->Ref();//DHQ: 获得各个SuperVersion的Ref，防止被删除了。(持有了lock)
   }
   mutex_.Unlock();
 

@@ -647,7 +647,7 @@ class Version {
   // record results in files_by_compaction_pri_. The largest files are listed
   // first.
   void UpdateFilesByCompactionPri();
-
+  //DHQ: version 属于 CFD
   ColumnFamilyData* cfd_;  // ColumnFamilyData to which this Version belongs
   Logger* info_log_;
   Statistics* db_statistics_;
@@ -851,7 +851,7 @@ class VersionSet {
                         std::vector<std::string>* manifest_filenames,
                         uint64_t min_pending_output);
 
-  ColumnFamilySet* GetColumnFamilySet() { return column_family_set_.get(); }
+  ColumnFamilySet* GetColumnFamilySet() { return column_family_set_.get(); }//DHQ: unique_ptr的get()
   const EnvOptions& env_options() { return env_options_; }
   void ChangeEnvOptions(const MutableDBOptions& new_options) {
     env_options_.writable_file_max_buffer_size =

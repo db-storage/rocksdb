@@ -23,7 +23,7 @@ class WritableFileWriter;
 using std::unique_ptr;
 
 namespace log {
-
+//DHQ: kBlockSize应该是 I/O的单位，称为Chunk。 但是一个Batchgroup比这个大，可以到2MB，即多个 kBlockSize。为了避免小的k/v put被耽搁太久。
 /**
  * Writer is a general purpose log stream writer. It provides an append-only
  * abstraction for writing data. The details of the how the data is written is

@@ -1355,7 +1355,7 @@ class DBImpl : public DB {
 
   // When set, we use a seprate queue for writes that dont write to memtable. In
   // 2PC these are the writes at Prepare phase.
-  const bool two_write_queues_;
+  const bool two_write_queues_; //DHQ: 不写 memtable的，单独有个queue
   const bool manual_wal_flush_;
   // Increase the sequence number after writing each batch, whether memtable is
   // disabled for that or not. Otherwise the sequence number is increased after

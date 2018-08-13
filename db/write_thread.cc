@@ -205,7 +205,7 @@ void WriteThread::SetState(Writer* w, uint8_t new_state) {
     std::lock_guard<std::mutex> guard(w->StateMutex());
     assert(w->state.load(std::memory_order_relaxed) != new_state);
     w->state.store(new_state, std::memory_order_relaxed);
-    w->StateCV().notify_one();
+    w->StateCV().notify_one();//DHQ: wakeup
   }
 }
 
@@ -220,7 +220,7 @@ bool WriteThread::LinkOne(Writer* w, std::atomic<Writer*>* newest_writer) {
     }
   }
 }
-
+//DHQ: 从leader到last_writer之间的部分，
 bool WriteThread::LinkGroup(WriteGroup& write_group,
                             std::atomic<Writer*>* newest_writer) {
   assert(newest_writer != nullptr);
@@ -288,7 +288,7 @@ void WriteThread::CompleteFollower(Writer* w, WriteGroup& write_group) {
 }
 
 static WriteThread::AdaptationContext jbg_ctx("JoinBatchGroup");
-void WriteThread::JoinBatchGroup(Writer* w) {
+void WriteThread::JoinBatchGroup(Writer* w) {//DHQ: 这个函数，对于不需要干活的，直接在里面等待。
   TEST_SYNC_POINT_CALLBACK("WriteThread::JoinBatchGroup:Start", w);
   assert(w->batch != nullptr);
 
@@ -331,7 +331,7 @@ size_t WriteThread::EnterAsBatchGroupLeader(Writer* leader,
   // Allow the group to grow up to a maximum size, but if the
   // original write is small, limit the growth so we do not slow
   // down the small write too much.
-  size_t max_size = 1 << 20;
+  size_t max_size = 1 << 20;  //DHQ: size的限制，这个跟 kBlockSize 啥关系？
   if (size <= (128 << 10)) {
     max_size = size + (128 << 10);
   }
@@ -543,16 +543,16 @@ void WriteThread::ExitAsBatchGroupLeader(WriteGroup& write_group,
     for (Writer* w = last_writer; w != leader;) {
       Writer* next = w->link_older;
       w->status = status;
-      if (!w->ShouldWriteToMemtable()) {
+      if (!w->ShouldWriteToMemtable()) {//DHQ: 不需要写memtable的follower，直接complete
         CompleteFollower(w, write_group);
       }
-      w = next;
+      w = next;//DHQ: 每一个都单独判断，是否需要写memtable，不能把多个 writer 直接从list 删除
     }
-    if (!leader->ShouldWriteToMemtable()) {
+    if (!leader->ShouldWriteToMemtable()) {//DHQ: 不需要写memtable的leader，直接complete
       CompleteLeader(write_group);
     }
     // Link the ramaining of the group to memtable writer list.
-    if (write_group.size > 0) {
+    if (write_group.size > 0) {//DHQ: 已经写完WAL的writer, 放到 memtable_writer_ 里面
       if (LinkGroup(write_group, &newest_memtable_writer_)) {
         // The leader can now be different from current writer.
         SetState(write_group.leader, STATE_MEMTABLE_WRITER_LEADER);
@@ -594,13 +594,13 @@ void WriteThread::ExitAsBatchGroupLeader(WriteGroup& write_group,
       // work is going on here (with or without db mutex).
       CreateMissingNewerLinks(head);
       assert(last_writer->link_newer->link_older == last_writer);
-      last_writer->link_newer->link_older = nullptr;
+      last_writer->link_newer->link_older = nullptr; //DHQ: 让新leader的 link_older变为nullptr
 
       // Next leader didn't self-identify, because newest_writer_ wasn't
       // nullptr when they enqueued (we were definitely enqueued before them
       // and are still in the list).  That means leader handoff occurs when
       // we call MarkJoined
-      SetState(last_writer->link_newer, STATE_GROUP_LEADER);
+      SetState(last_writer->link_newer, STATE_GROUP_LEADER); //DHQ: wakeup 新leader
     }
     // else nobody else was waiting, although there might already be a new
     // leader now
@@ -610,7 +610,7 @@ void WriteThread::ExitAsBatchGroupLeader(WriteGroup& write_group,
       // we need to read link_older before calling SetState, because as soon
       // as it is marked committed the other thread's Await may return and
       // deallocate the Writer.
-      auto next = last_writer->link_older;
+      auto next = last_writer->link_older; //先获取next，再SetState。因为SetState后，可能被free
       SetState(last_writer, STATE_COMPLETED);
 
       last_writer = next;

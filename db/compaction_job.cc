@@ -360,7 +360,7 @@ void CompactionJob::ReportStartedCompaction(
         compaction->is_manual_compaction();
   }
 }
-
+//DHQ: 判断要不要做subcompaction，即切分。
 void CompactionJob::Prepare() {
   AutoThreadOperationStageUpdater stage_updater(
       ThreadStatus::STAGE_COMPACTION_PREPARE);
@@ -525,7 +525,7 @@ Status CompactionJob::Run() {
   TEST_SYNC_POINT("CompactionJob::Run():Start");
   log_buffer_->FlushBufferToLog();
   LogCompaction();
-
+  //DHQ: 每个subcompaction一个线程
   const size_t num_threads = compact_->sub_compact_states.size();
   assert(num_threads > 0);
   const uint64_t start_micros = env_->NowMicros();

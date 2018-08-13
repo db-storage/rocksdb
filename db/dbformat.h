@@ -32,7 +32,7 @@ class InternalKey;
 // for them to do more flexible encoding.
 enum ValueType : unsigned char {
   kTypeDeletion = 0x0,
-  kTypeValue = 0x1,
+  kTypeValue = 0x1,    //默认CF的value
   kTypeMerge = 0x2,
   kTypeLogData = 0x3,               // WAL only.
   kTypeColumnFamilyDeletion = 0x4,  // WAL only.

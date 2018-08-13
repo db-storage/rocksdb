@@ -111,15 +111,15 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
 
   StopWatch write_sw(env_, immutable_db_options_.statistics.get(), DB_WRITE);
 
-  write_thread_.JoinBatchGroup(&w);
+  write_thread_.JoinBatchGroup(&w);  // DHQ: JoinBatchGroup 返回后，w.state 就有了值，可能已经完成了等待. 也可能是变成STATE_PARALLEL_MEMTABLE_WRITER
   if (w.state == WriteThread::STATE_PARALLEL_MEMTABLE_WRITER) {
     // we are a non-leader in a parallel group
     PERF_TIMER_GUARD(write_memtable_time);
 
     if (w.ShouldWriteToMemtable()) {
       ColumnFamilyMemTablesImpl column_family_memtables(
-          versions_->GetColumnFamilySet());
-      w.status = WriteBatchInternal::InsertInto(
+          versions_->GetColumnFamilySet());  //DHQ: 每个batch，可能都写多个CF，所以获取的是CF Set的memtables
+      w.status = WriteBatchInternal::InsertInto(//DHQ: 把自己负责的batch的内容，插入到 CF Set的 memtable中
           &w, w.sequence, &column_family_memtables, &flush_scheduler_,
           write_options.ignore_missing_column_families, 0 /*log_number*/, this,
           true /*concurrent_memtable_writes*/, seq_per_batch_);
@@ -147,7 +147,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     // STATE_COMPLETED conditional below handles exit
 
     status = w.FinalStatus();
-  }
+  }  //DHQ: STATE_PARALLEL_MEMTABLE_WRITER
   if (w.state == WriteThread::STATE_COMPLETED) {
     if (log_used != nullptr) {
       *log_used = w.log_used;
@@ -159,7 +159,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     return w.FinalStatus();
   }
   // else we are the leader of the write batch group
-  assert(w.state == WriteThread::STATE_GROUP_LEADER);
+  assert(w.state == WriteThread::STATE_GROUP_LEADER); //DHQ:走到这里的，是leader
 
   // Once reaches this point, the current writer "w" will try to do its write
   // job.  It may also pick up some of the remaining writers in the "writers_"
@@ -181,7 +181,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     // With concurrent writes we do preprocess only in the write thread that
     // also does write to memtable to avoid sync issue on shared data structure
     // with the other thread
-    status = PreprocessWrite(write_options, &need_log_sync, &write_context);
+    status = PreprocessWrite(write_options, &need_log_sync, &write_context);//DHQ: 这里会生成write_context
   }
   log::Writer* log_writer = logs_.back().writer;
 
@@ -672,7 +672,7 @@ void DBImpl::MemTableInsertStatusCheck(const Status& status) {
     mutex_.Unlock();
   }
 }
-
+//DHQ: SwitchWAL这类预处理，类似于我们换Log Segment。但是我们需要处理大小不足的问题,因为seg大小是确定的
 Status DBImpl::PreprocessWrite(const WriteOptions& write_options,
                                bool* need_log_sync,
                                WriteContext* write_context) {
@@ -683,7 +683,7 @@ Status DBImpl::PreprocessWrite(const WriteOptions& write_options,
   assert(!single_column_family_mode_ ||
          versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1);
   if (UNLIKELY(status.ok() && !single_column_family_mode_ &&
-               total_log_size_ > GetMaxTotalWalSize())) {
+               total_log_size_ > GetMaxTotalWalSize())) {//DHQ: WAL file写满
     status = SwitchWAL(write_context);
   }
 
@@ -693,7 +693,8 @@ Status DBImpl::PreprocessWrite(const WriteOptions& write_options,
     // thread is writing to another DB with the same write buffer, they may also
     // be flushed. We may end up with flushing much more DBs than needed. It's
     // suboptimal but still correct.
-    status = HandleWriteBufferFull(write_context);
+    status = HandleWriteBufferFull(
+        write_context);  // DHQ: 这里处理 memtable的switch，类似于leveldb的MakeRoomForWrite
   }
 
   if (UNLIKELY(status.ok() && !bg_error_.ok())) {
